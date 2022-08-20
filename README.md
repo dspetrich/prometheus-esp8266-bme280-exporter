@@ -1,4 +1,4 @@
-# Prometheus ESP8266 DHT Exporter
+# Prometheus ESP8266 BME280 Exporter
 
 [![GitHub release](https://img.shields.io/github/v/release/HON95/prometheus-esp8266-dht-exporter?label=Version)](https://github.com/HON95/prometheus-esp8266-dht-exporter/releases)
 
