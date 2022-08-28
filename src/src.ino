@@ -19,14 +19,19 @@
 #define TEMPERATURE_CORRECTION_OFFSET 0
 // Humidity offset in percent
 #define HUMIDITY_CORRECTION_OFFSET 0
+// Pressure offset in HPA
+#define PRESSURE_CORRECTION_OFFSET 0
+// Altitude offset in meter
+#define ALTITUDE_CORRECTION_OFFSET 0
 // How long to cache the sensor results, in milliseconds
 #define READ_INTERVAL 1000
 // How many times to try to read the sensor before returning an error
 #define READ_TRY_COUNT 5
 
-#define EXPLODE4(arr) (arr[0], arr[1], arr[2], arr[3])
-
 #define SEALEVELPRESSURE_HPA (1013.25)
+
+// Debug mode is enabled if not zero
+#define DEBUG_MODE 1
 
 enum LogLevel {
   DEBUG,
@@ -35,7 +40,7 @@ enum LogLevel {
 };
 
 Adafruit_BME280 bme_sensor;
-ESP8266WebServer server(HTTP_SERVER_PORT);
+ESP8266WebServer http_server(HTTP_SERVER_PORT);
 
 void setup_bme_sensor();
 void setup_wifi();
@@ -47,23 +52,24 @@ bool read_sensor(float (*function)(), float *value);
 void log(char const *message, LogLevel level = LogLevel::INFO);
 
 float temperature, humidity, pressure, altitude;
-// float humidity, temperature, heat_index;
+
 uint32_t previous_read_time = 0;
 
 void setup(void) {
   char message[128];
   Serial.begin(SERIAL_PORT_NUM);
-  setup_bme_sensor();
+  // setup_bme_sensor();
   setup_wifi();
   setup_http_server();
   snprintf(message, 128, "Prometheus namespace: %s", PROM_NAMESPACE);
   log(message);
+  setup_bme_sensor();
   log("Setup done");
 }
 
 void setup_bme_sensor() {
   log("Setting up BME280 sensor");
-  bme_sensor.begin(BME280_ADDRESS);
+  bme_sensor.begin(BME_ADDRESS);
   // Test read
   read_sensors(true);
   log("DHT sensor ready", LogLevel::DEBUG);
@@ -186,23 +192,21 @@ void handle_http_metrics() {
       "_air_temperature_celsius \u00B0C\n" PROM_NAMESPACE
       "_air_temperature_celsius %f\n"
       "# HELP " PROM_NAMESPACE
-      "_air_heat_index_celsius Apparent air temperature, based on temperature "
-      "and humidity.\n"
+      "_air_pressure_hectopascal Air pressure\n"
       "# TYPE " PROM_NAMESPACE
-      "_air_heat_index_celsius gauge\n"
-      "# UNIT " PROM_NAMESPACE
-      "_air_heat_index_celsius \u00B0C\n" PROM_NAMESPACE
-      "_air_heat_index_celsius %f\n";
+      "_air_pressure_hectopascal gauge\n"
+      "# UNIT " PROM_NAMESPACE "_air_pressure_hectopascal hPa\n" PROM_NAMESPACE
+      "_air_pressure_hectopascal %f\n";
 
   read_sensors();
-  if (isnan(humidity) || isnan(temperature) || isnan(heat_index)) {
+  if (isnan(humidity) || isnan(temperature) || isnan(pressure)) {
     http_server.send(500, "text/plain; charset=utf-8", "Sensor error.");
     return;
   }
 
   char response[BUFSIZE];
-  snprintf(response, BUFSIZE, response_template, VERSION, BOARD_NAME, DHT_NAME,
-           humidity, temperature, heat_index);
+  snprintf(response, BUFSIZE, response_template, VERSION, BOARD_NAME,
+           SENSOR_NAME, humidity, temperature, pressure);
   http_server.send(200, "text/plain; charset=utf-8", response);
 }
 
@@ -221,15 +225,13 @@ void read_sensors(boolean force) {
   previous_read_time = current_time;
 
   read_temperature_sensor();
-
-  temperature = bme_sensor.readTemperature();
-  humidity = bme_sensor.readHumidity();
-  pressure = bme_sensor.readPressure() / 100.0F;
-  altitude = bme_sensor.readAltitude(SEALEVELPRESSURE_HPA);
+  read_humidity_sensor();
+  read_pressure_sensor();
 }
 
 void read_temperature_sensor() {
   log("Reading temperature sensor ...", LogLevel::DEBUG);
+  Serial.println("-----> TEMP" + String(bme_sensor.readTemperature()));
   bool result =
       read_sensor([] { return bme_sensor.readTemperature(); }, &temperature);
   if (result) {
@@ -253,9 +255,21 @@ void read_humidity_sensor() {
 void read_pressure_sensor() {
   log("Reading pressure sensor ...", LogLevel::DEBUG);
   bool result =
-      read_sensor([] { return bme_sensor.readPressure() * 0.001F; }, &pressure);
+      read_sensor([] { return bme_sensor.readPressure() * 0.01F; }, &pressure);
   if (result) {
-    humidity += HUMIDITY_CORRECTION_OFFSET;
+    humidity += PRESSURE_CORRECTION_OFFSET;
+  } else {
+    log("Failed to read humidity sensor.", LogLevel::ERROR);
+  }
+}
+
+void read_altitude_sensor() {
+  log("Reading altitude sensor ...", LogLevel::DEBUG);
+  bool result = read_sensor(
+      [] { return bme_sensor.readAltitude(SEALEVELPRESSURE_HPA) * 0.001F; },
+      &altitude);
+  if (result) {
+    humidity += ALTITUDE_CORRECTION_OFFSET;
   } else {
     log("Failed to read humidity sensor.", LogLevel::ERROR);
   }
@@ -274,6 +288,7 @@ bool read_sensor(float (*function)(), float *value) {
   return success;
 }
 
+// //////////////////////////////////////////////////////////////
 void log_request() {
   char message[128];
   char method_name[16];

@@ -2,7 +2,7 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/HON95/prometheus-esp8266-dht-exporter?label=Version)](https://github.com/HON95/prometheus-esp8266-dht-exporter/releases)
 
-An IoT Prometheus exporter for measuring temperature and humidity, using an ESP8266 (Arduino-compatible) with a Wi-Fi module and a DHT (temperature + humidity) sensor.
+An IoT Prometheus exporter for measuring temperature and humidity, using an ESP8266 (Arduino-compatible) with a Wi-Fi module and a BME280 (temperature, humidity, air pressure) sensor.
 
 ## Metrics
 
@@ -11,7 +11,7 @@ An IoT Prometheus exporter for measuring temperature and humidity, using an ESP8
 | `iot_info` | Metadata about the device. | |
 | `iot_air_humidity_percent` | Air humidity. | `%` |
 | `iot_air_temperature_celsius` | Air temperature. | `°C` |
-| `iot_air_heat_index_celsius` | Apparent air temperature, based on temperature and humidity. | `°C` |
+| `iot_air_pressure_hectopascal` | Apparent air pressure | `°C` |
 
 ## Requirements
 
@@ -38,9 +38,9 @@ An IoT Prometheus exporter for measuring temperature and humidity, using an ESP8
 
 ### Hardware
 
-Using the "Adafruit Feather HUZZAH ESP8266".
+Using the "AZ Deliverz D1 Mini ESP8266Mod 12-F".
 
-Wire the DHT sensor power to the 3.3V and any GND on the ESP and wire the data output to e.g. pin 14 (aka D5).
+Wire the BME280 sensor power to the 3.3V and any GND on the ESP and wire the data output to e.g. pin 14 (aka D5).
 
 ### Software
 
